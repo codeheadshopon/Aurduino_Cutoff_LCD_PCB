@@ -1,0 +1,143 @@
+
+#include <LiquidCrystal.h>
+
+#define cutoff_voltage 28.00  // turn off voltage
+#define cuton_voltage  24.00  //trun on voltage 
+
+#define maxInputVolt   55     // adjust voltage reading from battery  and write maximum battery input voltage
+
+#define chargeOn 1 // for lcd
+#define chargeOff 2 //for lcd
+
+// FOR LCD INTERVAL TIME
+const long interval = 5000;           // the time bteween showing shop and batttery infor interval at which to blink (milliseconds)
+unsigned long previousTime = 5000;        // will store last time LED was updated
+unsigned long currentTime;
+
+
+//control pin defination
+int mosFet = 2;       // mosfet drive pin this pin will trun on and off the machine
+int charging = 3;     //red led pin
+int not_charging = 4; //greed led pin
+
+//varibale defination
+int sensorValue,i,chargeStat;
+float voltage = 0.0;
+float tempVoltage = 0.0;
+int lcdToggle = 0;
+
+// LCD pin defination 
+LiquidCrystal lcd(12, 11, 10, 9, 8, 7); // (RS, E, D4, D5, D6, D7)
+
+void shopInfo() // to show shop info
+{
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("ABUL AUTO CHARGER");
+  lcd.setCursor(0, 1);
+  lcd.print("mob: 01711024845");
+}
+
+void chargingInfo(float volt, int chargeStat) // to show charging status
+{
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  if (chargeStat == chargeOn)
+  {
+    lcd.print("  Charing ON  ");
+  }
+
+  else if (chargeStat == chargeOff)
+  {
+    lcd.print("Charing Complete");
+  }
+
+  lcd.setCursor(0, 1);
+  lcd.print("volt :"); lcd.print(volt, 7);
+}
+
+void setup() {
+
+  // initialize serial communication at 9600 bits per second:
+
+  pinMode(mosFet, OUTPUT);
+
+  pinMode(charging, OUTPUT);
+  pinMode(not_charging, OUTPUT);
+
+  lcd.begin(16, 2);
+  Serial.begin(9600);
+
+  //initially start the machine
+
+  digitalWrite(mosFet, HIGH);
+  digitalWrite(not_charging, LOW);
+  digitalWrite(charging, HIGH);
+  //Serial.print("\n battery is charging, voltage :"); Serial.print(voltage);
+  chargeStat = chargeOn; // for lcd
+
+}
+
+
+
+
+// the loop routine runs over and over again forever:
+void loop() {
+  
+  // read the voltage on analog pin A5:
+
+  tempVoltage = 0 ;
+  //taking average of voltage reading so the reading is more stable
+  for ( i = 1; i <= 1000; i++ )
+  {
+    sensorValue = analogRead(A5);
+
+    tempVoltage = (tempVoltage + sensorValue * (maxInputVolt / 1023.0)); // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 50V):
+    voltage = tempVoltage / i;
+
+  }
+
+
+  if (voltage > cutoff_voltage ) // charging off settings
+  {
+
+    digitalWrite(mosFet, LOW);
+    digitalWrite(not_charging, HIGH);
+    digitalWrite(charging, LOW);
+    //Serial.print("\n battery is not charging, voltage :"); Serial.print(voltage);
+    chargeStat = chargeOff; // for lcd
+
+  }
+  else if (voltage < cuton_voltage ) // charging on settings
+  {
+
+    digitalWrite(mosFet, HIGH);
+    digitalWrite(not_charging, LOW);
+    digitalWrite(charging, HIGH);
+    //Serial.print("\n battery is charging, voltage :"); Serial.print(voltage);
+    chargeStat = chargeOn; // for lcd
+
+  }
+
+
+  // this part only to use lcd, using timer instead of delay
+  currentTime = millis();
+  if (currentTime - previousTime >= interval )
+  {
+    previousTime = currentTime;
+
+    if (lcdToggle == 0)
+    {
+      shopInfo();
+      lcdToggle = 1;
+    }
+    else if (lcdToggle == 1)
+    {
+      chargingInfo(voltage, chargeStat);
+      lcdToggle = 0;
+    }
+  }
+
+  delay(100);
+}
+
